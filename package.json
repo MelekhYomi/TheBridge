@@ -1,0 +1,19 @@
+{
+  "name": "thebridge-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TheBridge Project and Integrated Services Ltd — webinar and course website with Paystack/Flutterwave checkout and admin dashboard.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "icons": "python scripts/make-icons.py"
+  },
+  "dependencies": {
+    "express": "4.21.2"
+  }
+}

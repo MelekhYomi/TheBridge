@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 104" role="img" aria-label="TheBridge">
+  <path d="M0 60A60 60 0 0 1 120 60H86A26 26 0 0 0 34 60Z" fill="#111111"/>
+  <rect x="0" y="64" width="34" height="40" fill="#111111"/>
+  <rect x="86" y="64" width="34" height="40" fill="#111111"/>
+  <rect x="38" y="88" width="44" height="16" fill="#111111"/>
+</svg>
