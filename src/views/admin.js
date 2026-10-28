@@ -1,4 +1,4 @@
-import { esc, naira, whatsappLink } from './layout.js';
+import { esc, naira, whatsappLink, ASSET_V } from './layout.js';
 
 const csrfField = (csrf) => `<input type="hidden" name="_csrf" value="${esc(csrf)}">`;
 const when = (iso) => (iso ? esc(iso.replace('T', ' ').slice(0, 16)) + ' UTC' : '');
@@ -21,7 +21,7 @@ function shell({ title, active, body, csrf, counts }) {
 <title>${esc(title)} · TheBridge Admin</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/site.css"><link rel="stylesheet" href="/css/admin.css">
+<link rel="stylesheet" href="/css/site.css?v=${ASSET_V}"><link rel="stylesheet" href="/css/admin.css?v=${ASSET_V}">
 </head>
 <body class="admin">
 <div class="admin-shell">
@@ -42,7 +42,7 @@ export function loginPage({ error }) {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>Admin login · TheBridge</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/site.css"><link rel="stylesheet" href="/css/admin.css"></head>
+<link rel="stylesheet" href="/css/site.css?v=${ASSET_V}"><link rel="stylesheet" href="/css/admin.css?v=${ASSET_V}"></head>
 <body><div class="login-wrap on-dark"><div class="card">
   <a class="brand" href="/" style="margin-bottom:22px"><img src="/brand/mark.svg" alt="" width="44" height="40"><span class="brand-name"><span>The</span><b>Bridge</b></span></a>
   <h1 style="font-size:1.6rem">Admin sign in</h1>

@@ -1,4 +1,5 @@
 import { esc, lines, naira, whatsappLink, alerts, icon, arrowBtn } from './layout.js';
+import { facilitatorFor } from '../facilitators.js';
 
 export const REG_STATUS = ['Student', 'Recent graduate', 'Jobseeker', 'Career switcher', 'Other'];
 export const REG_EXPERIENCE = ['Complete beginner', 'Some experience', 'Already working in tech'];
@@ -16,8 +17,79 @@ export const isOpen = (c, payments) => c.price_kobo != null && c.price_kobo > 0 
 
 const contribution = (c) => (c.price_kobo != null ? naira(c.price_kobo) : 'To be confirmed');
 
+const initials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+
+// Photo, or initials on the course colour when there's no photo yet.
+const avatar = (f, cls = '') => (f.photo
+  ? `<img class="${cls}" src="${esc(f.photo)}" alt="${esc(f.name)}" loading="lazy" width="600" height="600">`
+  : `<span class="${cls} initials" aria-hidden="true">${esc(initials(f.name))}</span>`);
+
+const SOCIALS = [['x', 'X (Twitter)'], ['github', 'GitHub'], ['instagram', 'Instagram'], ['website', 'Website']];
+const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : '');
+
+// LinkedIn gets a labelled pill; the rest are icon buttons.
+function socialLinks(f) {
+  const s = f.socials || {};
+  const out = [];
+  if (safeUrl(s.linkedin)) out.push(`<a class="soc-in" href="${esc(s.linkedin)}" target="_blank" rel="noopener">${icon('linkedin')}<span>LinkedIn</span></a>`);
+  for (const [key, label] of SOCIALS) {
+    if (safeUrl(s[key])) out.push(`<a class="soc" href="${esc(s[key])}" target="_blank" rel="noopener" aria-label="${esc(f.name)} on ${label}">${icon(key === 'website' ? 'globe' : key)}</a>`);
+  }
+  return out.length ? `<div class="socials">${out.join('')}</div>` : '';
+}
+
+function facilitatorCard(f, c, i) {
+  const quals = (f.qualifications || []).filter(Boolean);
+  return `<article class="person c-${esc(c.colour)} reveal" style="--d:${(i * 0.08).toFixed(2)}s">
+    <div class="person-photo">
+      ${avatar(f)}
+      <span class="person-idx">0${i + 1}</span>
+    </div>
+    <div class="person-body">
+      <span class="person-role">${esc(f.role)}</span>
+      <h3>${esc(f.name)}</h3>
+      <a class="person-course" href="/courses/${esc(c.slug)}"><i></i>Leads ${esc(c.title)}</a>
+      ${f.bio ? `<p class="person-bio">${esc(f.bio)}</p>` : ''}
+      ${quals.length ? `<ul class="quals">${quals.map((q) => `<li>${icon('award')}<span>${esc(q)}</span></li>`).join('')}</ul>` : ''}
+      ${socialLinks(f)}
+    </div>
+  </article>`;
+}
+
+function facilitatorsSection(courses) {
+  const pairs = courses.map((c) => [facilitatorFor(c.slug), c]).filter(([f]) => f);
+  if (!pairs.length) return '';
+  return `<section class="dark" id="facilitators">
+  <div class="glow g2" style="opacity:.35"></div>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="tag">Your facilitators</span>
+      <h2>Learn from people who do the work.</h2>
+      <p class="lead muted">Four practitioners, one for each field. They teach the webinar sessions and lead the cohort courses that follow.</p>
+    </div>
+    <div class="people">${pairs.map(([f, c], i) => facilitatorCard(f, c, i)).join('')}</div>
+  </div>
+</section>`;
+}
+
+// Compact "your facilitator" block for a course page.
+function facilitatorNote(c) {
+  const f = facilitatorFor(c.slug);
+  if (!f) return '';
+  return `<div class="person-mini c-${esc(c.colour)}">
+    ${avatar(f, 'mini-photo')}
+    <div>
+      <small>Your facilitator</small>
+      <strong>${esc(f.name)}</strong>
+      <span>${esc(f.role)}</span>
+    </div>
+    ${socialLinks(f)}
+  </div>`;
+}
+
 function courseCard(c, payments, i) {
   const open = isOpen(c, payments);
+  const f = facilitatorFor(c.slug);
   return `<article class="course reveal" style="--d:${(i * 0.07).toFixed(2)}s">
     <div class="course-head ${esc(c.colour)}">
       <span class="idx">0${i + 1}</span>
@@ -30,6 +102,7 @@ function courseCard(c, payments, i) {
         <span class="chip">${c.start_date ? `Starts ${esc(c.start_date)}` : 'Dates to be confirmed'}</span>
       </div>
       <p>${esc(c.summary)}</p>
+      ${f ? `<div class="led-by">${avatar(f, 'mini-photo')}<span><small>Led by</small>${esc(f.name)}</span></div>` : ''}
       <div class="price"><small>Participation contribution</small>${esc(contribution(c))}</div>
       <div class="course-actions">
         <a class="btn" href="/courses/${esc(c.slug)}">${open ? 'Enrol now' : 'Express interest'} ${arrowBtn}</a>
@@ -177,7 +250,9 @@ export function homePage({ settings: s, courses, payments, query }) {
   </div>
 </section>
 
-<section class="dark" id="programme">
+${facilitatorsSection(courses)}
+
+<section class="dark" id="programme" style="border-top:1px solid var(--line)">
   <div class="wrap">
     <div class="section-head reveal">
       <span class="tag">Programme</span>
@@ -354,6 +429,7 @@ export function coursePage({ course: c, payments, query }) {
       ${lines(c.outcomes).length ? `<h3 style="margin-top:32px">What you'll be able to do</h3>
       <ul class="ticks">${lines(c.outcomes).map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
       ${c.session_title ? `<div class="session-note"><i>${icon('play')}</i><div><small>Introduced in the free webinar</small>${esc(c.session_title)}</div></div>` : ''}
+      ${facilitatorNote(c)}
     </div>
     <div class="card on-glow reveal" style="--d:.1s">
       ${alerts(query)}
