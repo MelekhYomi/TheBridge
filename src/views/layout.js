@@ -62,7 +62,7 @@ const ICONS = {
 export const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 export const arrowBtn = `<span class="arr">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS.arrow + '</svg>'}</span>`;
 
-export function layout({ title, description, active = '', body, settings }) {
+export function layout({ title, description, active = '', body, settings, noindex = false }) {
   const pageTitle = title ? `${title} · TheBridge` : 'TheBridge · Learn the skills that move you forward';
   const nav = [
     ['/#webinar', 'Webinar', 'home'],
@@ -77,7 +77,7 @@ export function layout({ title, description, active = '', body, settings }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(pageTitle)}</title>
 <meta name="description" content="${esc(description || 'TheBridge runs a free practical webinar and subsidised cohort courses in product thinking and automation, software development, cybersecurity and blockchain security.')}">
-<meta name="theme-color" content="#0A0A0B">
+<meta name="theme-color" content="#0A0A0B">${noindex ? '\n<meta name="robots" content="noindex">' : ''}
 <meta property="og:title" content="${esc(pageTitle)}">
 <meta property="og:image" content="/icon-512.png">
 <link rel="icon" href="/favicon.ico" sizes="48x48">

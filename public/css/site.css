@@ -371,6 +371,51 @@ label.check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: va
 .free-place[open] summary::after { transform: rotate(45deg); }
 .free-place .form { margin-top: 14px; }
 
+/* ---------- Facilitator profile form (/fprofile) ---------- */
+.fp-hero h1 { max-width: 14ch; }
+.fp-wrap { max-width: 860px; }
+.fp-note { font-size: .92rem; color: var(--grey-500); margin-bottom: 18px; }
+.fp-form { gap: 22px; }
+.fp-section { margin: 0; min-width: 0; border: 1px solid var(--line-dark); border-radius: var(--r-lg); background: var(--white); padding: 30px 32px 34px; display: grid; gap: 20px; box-shadow: 0 30px 60px -45px rgba(0,0,0,.35); }
+.fp-section legend { float: left; width: 100%; padding: 0; margin-bottom: 4px; display: flex; align-items: center; gap: 14px; font-family: var(--head); font-size: clamp(1.3rem, 2.4vw, 1.6rem); font-weight: 700; letter-spacing: -.03em; }
+.fp-section legend + * { clear: both; }
+.fp-num { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--black); color: var(--yellow); font: 600 .85rem var(--mono); letter-spacing: 0; flex: none; }
+.fp-section:nth-of-type(2) .fp-num { background: var(--blue); color: var(--white); }
+.fp-section:nth-of-type(3) .fp-num { background: var(--yellow); color: var(--black); }
+.fp-section:nth-of-type(4) .fp-num { background: var(--red); color: var(--white); }
+.fp-intro { margin: 0; color: var(--grey-500); }
+.req { color: var(--red); margin-left: 3px; }
+.hint { display: block; font-weight: 400; font-size: .82rem; color: var(--grey-500); margin-top: -2px; }
+.fp-label { display: block; font-weight: 600; font-size: .86rem; }
+.fp-choice, .fp-photo, .fp-group { display: grid; gap: 8px; }
+.fp-group { gap: 10px; }
+.fp-group label { grid-template-columns: 26px 1fr; align-items: center; gap: 8px; font-family: var(--mono); font-size: .85rem; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.pill { position: relative; display: block; cursor: pointer; font-weight: 500; font-size: .9rem; }
+.pill input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+.pill span { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px 10px 12px; border-radius: 999px; border: 1.5px solid #D6D6D1; background: #FBFBF9; transition: background .2s, border-color .2s, color .2s; }
+.pill span::before { content: ''; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #A9A9A4; background: var(--white) center/11px no-repeat; flex: none; transition: background-color .2s, border-color .2s; }
+.pill input[type="radio"] + span::before { border-radius: 50%; }
+.pill:hover span { border-color: #A9A9A4; }
+.pill input:checked + span { background: var(--black); border-color: var(--black); color: var(--white); }
+.pill input:checked + span::before { border-color: var(--yellow); background-color: var(--yellow); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111111' stroke-width='4'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+.pill input:focus-visible + span { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.counter { font-weight: 500; font-size: .8rem; color: var(--grey-500); justify-self: end; }
+.counter.ok { color: var(--ok); }
+.photo-drop { display: flex; align-items: center; gap: 18px; padding: 16px; border: 1.5px dashed #C9C9C4; border-radius: var(--r-md); background: #FBFBF9; }
+.photo-preview { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; border: 3px solid var(--white); box-shadow: 0 0 0 1.5px var(--black); }
+.photo-preview[hidden], .other-course[hidden] { display: none; }
+.photo-drop > div { display: grid; gap: 6px; min-width: 0; }
+.site .photo-drop input[type="file"] { padding: 10px; background: var(--white); font-size: .9rem; }
+.photo-status { font-size: .82rem; font-weight: 500; color: var(--grey-500); }
+.fp-submit { display: grid; gap: 14px; padding-top: 6px; }
+.fp-wrap .alert ul { margin: 6px 0 0; padding-left: 20px; font-weight: 500; }
+.fp-done { text-align: center; }
+.fp-done .badge { width: 80px; height: 80px; margin: 0 auto 20px; display: grid; place-items: center; border-radius: 24px; background: var(--yellow); color: var(--black); }
+.fp-done .badge svg { width: 38px; height: 38px; }
+.fp-done p { max-width: 52ch; margin: 0 auto 22px; color: var(--grey-500); }
+.fp-done .hero-actions { justify-content: center; }
+
 /* ---------- FAQ accordion ---------- */
 .faq { display: grid; gap: 12px; max-width: 880px; }
 .faq details { border-radius: var(--r-md); background: rgba(255,255,255,.04); border: 1px solid var(--line); transition: background .25s, border-color .25s; }
@@ -473,6 +518,8 @@ label.check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: va
   .site .card { padding: 24px 20px; border-radius: 22px; }
   .footer-top { grid-template-columns: 1fr; }
   .person { grid-template-columns: 1fr; }
+  .fp-section { padding: 22px 18px 26px; border-radius: 22px; }
+  .photo-drop { flex-direction: column; align-items: flex-start; }
   .person-photo img, .person-photo .initials { aspect-ratio: 16 / 11; min-height: 0; }
   .person-body { padding: 22px 20px; }
   .btn { padding: 15px 20px; }

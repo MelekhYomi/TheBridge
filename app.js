@@ -7,6 +7,7 @@ const sec = await import('./src/security.js');
 const pay = await import('./src/payments.js');
 const { layout } = await import('./src/views/layout.js');
 const pub = await import('./src/views/public.js');
+const fp = await import('./src/views/fprofile.js');
 const adm = await import('./src/views/admin.js');
 
 const app = express();
@@ -52,6 +53,9 @@ app.post('/webhooks/flutterwave', express.raw({ type: '*/*', limit: '200kb' }), 
   }
 });
 
+// The facilitator form carries a resized photo, so it gets a bigger body limit
+// (still under Vercel's 4.5 MB request cap).
+app.use('/fprofile', express.urlencoded({ extended: false, limit: '4mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 app.use(express.static(fileURLToPath(new URL('./public', import.meta.url)), { maxAge: '1h' }));
 
@@ -65,8 +69,8 @@ const isBot = (req) => Boolean(req.body.website);
 const activeCourses = () => db.prepare('SELECT * FROM courses WHERE active = 1 ORDER BY sort, id').all();
 const findCourse = (slug) => db.prepare('SELECT * FROM courses WHERE slug = ? AND active = 1').get(slug);
 
-function page(res, { title, description, active, body, status = 200 }) {
-  res.status(status).type('html').send(layout({ title, description, active, body, settings: getSettings() }));
+function page(res, { title, description, active, body, status = 200, noindex = false }) {
+  res.status(status).type('html').send(layout({ title, description, active, body, noindex, settings: getSettings() }));
 }
 
 const formLimit = sec.rateLimit({ windowMs: 10 * 60e3, max: 20 });
@@ -125,6 +129,103 @@ app.get('/courses/:slug', (req, res, next) => {
   const course = findCourse(req.params.slug);
   if (!course) return next();
   page(res, { title: course.title, description: course.summary, active: 'courses', body: pub.coursePage({ course, payments: paymentsReady(), query: req.query }) });
+});
+
+// ---------- Facilitator profile form (/fprofile) → Google Sheet ----------
+
+const sheetUrl = () => process.env.FPROFILE_SHEET_URL || '';
+const fprofilePage = (res, opts, status = 200) => page(res, { title: 'Facilitator profile', noindex: true, status, body: fp.fprofilePage({ connected: Boolean(sheetUrl()), ...opts }) });
+
+app.get('/fprofile', (req, res) => fprofilePage(res, { sent: req.query.status === 'sent' }));
+
+app.post('/fprofile', formLimit, async (req, res) => {
+  if (isBot(req)) return res.redirect(303, '/fprofile?status=sent');
+  const b = req.body;
+  const one = (v, allowed) => (allowed.includes(v) ? v : '');
+  const many = (v, allowed) => [].concat(v || []).filter((x) => allowed.includes(x));
+  const words = (s) => s.split(/\s+/).filter(Boolean).length;
+
+  const v = {
+    name: clean(b.name, 120),
+    phone: clean(b.phone, 30),
+    email: clean(b.email, 160).toLowerCase(),
+    role: clean(b.role, 160),
+    experience: one(b.experience, fp.FP.experience),
+    bio: cleanText(b.bio, 3000),
+    photo_data: String(b.photo_data || ''),
+    link: clean(b.link, 300),
+    courses: many(b.courses, fp.FP.courses),
+    other_course: clean(b.other_course, 120),
+    topic: clean(b.topic, 200),
+    qualifications: cleanText(b.qualifications),
+    level: one(b.level, fp.FP.levels),
+    takeaway1: clean(b.takeaway1, 300),
+    takeaway2: clean(b.takeaway2, 300),
+    takeaway3: clean(b.takeaway3, 300),
+    outline: cleanText(b.outline),
+    formats: many(b.formats, fp.FP.formats),
+    length: one(b.length, fp.FP.lengths),
+    tools: clean(b.tools, 300),
+    availability: clean(b.availability, 200),
+    requirements: cleanText(b.requirements, 2000),
+    certificate: one(b.certificate, fp.FP.certificate),
+    comments: cleanText(b.comments, 2000),
+  };
+
+  const photo = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(v.photo_data);
+  const errors = [];
+  if (!v.name) errors.push('Enter your full name.');
+  if (v.phone.replace(/\D/g, '').length < 7) errors.push('Enter a valid WhatsApp number.');
+  if (!validEmail(v.email)) errors.push('Enter a valid email address.');
+  if (!v.role) errors.push('Enter your current role and organisation.');
+  if (!v.experience) errors.push('Choose your years of experience.');
+  if (words(v.bio) < fp.BIO_MIN_WORDS) errors.push(`Write a bio of at least ${fp.BIO_MIN_WORDS} words.`);
+  if (!photo) errors.push('Add your professional photo.');
+  if (v.link && !/^https?:\/\/\S+\.\S+/i.test(v.link)) errors.push('Enter the LinkedIn or portfolio link as a full web address starting with https://');
+  if (!v.courses.length) errors.push('Tick at least one course.');
+  if (v.courses.includes('Other') && !v.other_course) errors.push('Tell us the name of the other course.');
+  if (!v.topic) errors.push('Enter your session topic.');
+  if (!v.qualifications) errors.push('Tell us what makes you qualified to take this course.');
+  if (!v.level) errors.push('Choose the session level.');
+  if (!v.takeaway1 || !v.takeaway2 || !v.takeaway3) errors.push('Enter all 3 key things attendees will learn.');
+  if (!v.outline) errors.push('Enter your session outline.');
+  if (!v.length) errors.push('Choose how long your session will be.');
+  if (!v.availability) errors.push('Enter your available date and time.');
+  if (!photo) v.photo_data = '';
+  if (errors.length) return fprofilePage(res, { values: v, errors }, 422);
+
+  if (!sheetUrl()) return fprofilePage(res, { values: v, errors: ['This form is not connected to the sheet yet. Please try again later or contact us on WhatsApp.'] }, 503);
+
+  // Sheets would run a value starting with = + - @ as a formula; a leading ' keeps it as text.
+  const cell = (s) => (/^[=+\-@]/.test(s) ? `'${s}` : s);
+  const slug = v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'facilitator';
+  const row = {
+    submitted_at: new Date().toLocaleString('en-GB', { timeZone: 'Africa/Lagos' }),
+    name: v.name, phone: v.phone, email: v.email, role: v.role, experience: v.experience,
+    bio: v.bio, link: v.link,
+    courses: v.courses.map((c) => (c === 'Other' ? `Other: ${v.other_course}` : c)).join(', '),
+    topic: v.topic, qualifications: v.qualifications, level: v.level,
+    takeaways: `1. ${v.takeaway1}\n2. ${v.takeaway2}\n3. ${v.takeaway3}`,
+    outline: v.outline, formats: v.formats.join(', '), length: v.length, tools: v.tools,
+    availability: v.availability, requirements: v.requirements, certificate: v.certificate, comments: v.comments,
+  };
+  for (const k of Object.keys(row)) row[k] = cell(row[k]);
+  row.photo = { name: `${slug}-${Date.now()}.${photo[1].split('/')[1].replace('jpeg', 'jpg')}`, type: photo[1], data: photo[2] };
+
+  try {
+    const r = await fetch(sheetUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(row),
+      signal: AbortSignal.timeout(25000),
+    });
+    const out = await r.json().catch(() => ({}));
+    if (!out.ok) throw new Error(out.error || `Sheet responded ${r.status}`);
+  } catch (err) {
+    console.error('Facilitator profile → sheet failed:', err.message);
+    return fprofilePage(res, { values: v, errors: ["We couldn't save your details just now. Please press Submit again in a moment. Nothing you typed has been lost."] }, 502);
+  }
+  res.redirect(303, '/fprofile?status=sent');
 });
 
 app.post('/interest', formLimit, (req, res, next) => {
