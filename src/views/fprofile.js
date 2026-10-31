@@ -58,7 +58,7 @@ function choices(v, name, label, options, { type = 'checkbox', required = false,
     <span class="fp-label" id="lbl-${name}">${esc(label)}${required ? req : ''}</span>
     ${hintText ? hint(hintText) : ''}
     <div class="pills">
-      ${options.map((o) => `<label class="pill"><input type="${type}" name="${name}" value="${esc(o)}"${picked.includes(o) ? ' checked' : ''}${type === 'radio' && required ? ' required' : ''}><span>${esc(o === 'Other' ? 'Other (please specify)' : o)}</span></label>`).join('')}
+      ${options.map((o) => `<label class="fp-pill"><input type="${type}" name="${name}" value="${esc(o)}"${picked.includes(o) ? ' checked' : ''}${type === 'radio' && required ? ' required' : ''}><span>${esc(o === 'Other' ? 'Other (please specify)' : o)}</span></label>`).join('')}
     </div>
   </div>`;
 }

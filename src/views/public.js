@@ -1,5 +1,5 @@
 import { esc, lines, naira, whatsappLink, alerts, icon, arrowBtn } from './layout.js';
-import { facilitatorFor } from '../facilitators.js';
+import { media } from '../data.js';
 
 export const REG_STATUS = ['Student', 'Recent graduate', 'Jobseeker', 'Career switcher', 'Other'];
 export const REG_EXPERIENCE = ['Complete beginner', 'Some experience', 'Already working in tech'];
@@ -17,67 +17,102 @@ export const isOpen = (c, payments) => c.price_kobo != null && c.price_kobo > 0 
 
 const contribution = (c) => (c.price_kobo != null ? naira(c.price_kobo) : 'To be confirmed');
 
-const initials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+// ---------- Media ----------
+
+/** The 11-character video id from any common YouTube link, or ''. */
+export function youtubeId(url) {
+  const m = /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/))([\w-]{11})/.exec(String(url || ''));
+  return m ? m[1] : '';
+}
+
+// A thumbnail that becomes the real player on click, so YouTube's heavy
+// scripts never load unless someone actually plays the video.
+export function videoEmbed(url, title) {
+  const id = youtubeId(url);
+  if (!id) return '';
+  return `<a class="yt" href="https://www.youtube.com/watch?v=${id}" data-yt="${id}" target="_blank" rel="noopener" aria-label="Play video: ${esc(title)}">
+    <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy" width="480" height="360">
+    <span class="yt-play" aria-hidden="true">${icon('play')}</span>
+  </a>`;
+}
+
+const audioPlayer = (a, title) => (a ? `<figure class="audio"><figcaption>${icon('audio')}${esc(title)}</figcaption><audio controls preload="none" src="${esc(a.url)}"></audio></figure>` : '');
+
+const imgTag = (m, { cls = '', alt, eager = false, w = 1200, h = 800 } = {}) => (m
+  ? `<img${cls ? ` class="${cls}"` : ''} src="${esc(m.url)}" alt="${esc(alt ?? m.alt)}" width="${w}" height="${h}"${eager ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"'}>`
+  : '');
+
+// ---------- Facilitators ----------
+
+const initials = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
 // Photo, or initials on the course colour when there's no photo yet.
-const avatar = (f, cls = '') => (f.photo
-  ? `<img class="${cls}" src="${esc(f.photo)}" alt="${esc(f.name)}" loading="lazy" width="600" height="600">`
-  : `<span class="${cls} initials" aria-hidden="true">${esc(initials(f.name))}</span>`);
+function avatar(site, f, cls = '') {
+  const photo = media(site, f.photo);
+  return photo
+    ? imgTag(photo, { cls, alt: f.name, w: 600, h: 600 })
+    : `<span class="${cls} initials" aria-hidden="true">${esc(initials(f.name))}</span>`;
+}
 
 const SOCIALS = [['x', 'X (Twitter)'], ['github', 'GitHub'], ['instagram', 'Instagram'], ['website', 'Website']];
-const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : '');
+export const safeUrl = (u) => (/^https?:\/\/[^\s"'<>]+$/i.test(u || '') ? u : '');
 
 // LinkedIn gets a labelled pill; the rest are icon buttons.
 function socialLinks(f) {
-  const s = f.socials || {};
   const out = [];
-  if (safeUrl(s.linkedin)) out.push(`<a class="soc-in" href="${esc(s.linkedin)}" target="_blank" rel="noopener">${icon('linkedin')}<span>LinkedIn</span></a>`);
+  if (safeUrl(f.linkedin)) out.push(`<a class="soc-in" href="${esc(f.linkedin)}" target="_blank" rel="noopener">${icon('linkedin')}<span>LinkedIn</span></a>`);
   for (const [key, label] of SOCIALS) {
-    if (safeUrl(s[key])) out.push(`<a class="soc" href="${esc(s[key])}" target="_blank" rel="noopener" aria-label="${esc(f.name)} on ${label}">${icon(key === 'website' ? 'globe' : key)}</a>`);
+    if (safeUrl(f[key])) out.push(`<a class="soc" href="${esc(f[key])}" target="_blank" rel="noopener" aria-label="${esc(f.name)} on ${label}">${icon(key === 'website' ? 'globe' : key)}</a>`);
   }
   return out.length ? `<div class="socials">${out.join('')}</div>` : '';
 }
 
-function facilitatorCard(f, c, i) {
-  const quals = (f.qualifications || []).filter(Boolean);
-  return `<article class="person c-${esc(c.colour)} reveal" style="--d:${(i * 0.08).toFixed(2)}s">
+const facilitatorFor = (site, c) => site.facilitators.find((f) => f.course_id === c.id);
+
+function facilitatorCard(site, f, c, i) {
+  const audio = media(site, f.audio);
+  const vid = youtubeId(f.video);
+  return `<article class="person c-${esc(c?.colour || 'blue')} reveal" style="--d:${(i * 0.08).toFixed(2)}s">
     <div class="person-photo">
-      ${avatar(f)}
+      ${avatar(site, f)}
       <span class="person-idx">0${i + 1}</span>
     </div>
     <div class="person-body">
       <span class="person-role">${esc(f.role)}</span>
       <h3>${esc(f.name)}</h3>
-      <a class="person-course" href="/courses/${esc(c.slug)}"><i></i>Leads ${esc(c.title)}</a>
+      ${c ? `<a class="person-course" href="/courses/${esc(c.slug)}"><i></i>Leads ${esc(c.title)}</a>` : ''}
       ${f.bio ? `<p class="person-bio">${esc(f.bio)}</p>` : ''}
-      ${quals.length ? `<ul class="quals">${quals.map((q) => `<li>${icon('award')}<span>${esc(q)}</span></li>`).join('')}</ul>` : ''}
+      ${f.qualifications.length ? `<ul class="quals">${f.qualifications.map((q) => `<li>${icon('award')}<span>${esc(q)}</span></li>`).join('')}</ul>` : ''}
+      ${vid ? `<a class="person-media" href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener">${icon('play')}Watch ${esc(f.name.split(' ')[0])}'s intro</a>` : ''}
+      ${audio ? `<audio class="person-audio" controls preload="none" src="${esc(audio.url)}" aria-label="Audio intro from ${esc(f.name)}"></audio>` : ''}
       ${socialLinks(f)}
     </div>
   </article>`;
 }
 
-function facilitatorsSection(courses) {
-  const pairs = courses.map((c) => [facilitatorFor(c.slug), c]).filter(([f]) => f);
-  if (!pairs.length) return '';
+function facilitatorsSection(site) {
+  const s = site.settings;
+  if (!site.facilitators.length) return '';
+  const course = (f) => site.courses.find((c) => c.id === f.course_id);
   return `<section class="dark" id="facilitators">
   <div class="glow g2" style="opacity:.35"></div>
   <div class="wrap">
     <div class="section-head reveal">
-      <span class="tag">Your facilitators</span>
-      <h2>Learn from people who do the work.</h2>
-      <p class="lead muted">Four practitioners, one for each field. They teach the webinar sessions and lead the cohort courses that follow.</p>
+      <span class="tag">${esc(s.facilitators_tag)}</span>
+      <h2>${esc(s.facilitators_title)}</h2>
+      <p class="lead muted">${esc(s.facilitators_lead)}</p>
     </div>
-    <div class="people">${pairs.map(([f, c], i) => facilitatorCard(f, c, i)).join('')}</div>
+    <div class="people">${site.facilitators.map((f, i) => facilitatorCard(site, f, course(f), i)).join('')}</div>
   </div>
 </section>`;
 }
 
 // Compact "your facilitator" block for a course page.
-function facilitatorNote(c) {
-  const f = facilitatorFor(c.slug);
+function facilitatorNote(site, c) {
+  const f = facilitatorFor(site, c);
   if (!f) return '';
   return `<div class="person-mini c-${esc(c.colour)}">
-    ${avatar(f, 'mini-photo')}
+    ${avatar(site, f, 'mini-photo')}
     <div>
       <small>Your facilitator</small>
       <strong>${esc(f.name)}</strong>
@@ -87,9 +122,11 @@ function facilitatorNote(c) {
   </div>`;
 }
 
-function courseCard(c, payments, i) {
+// ---------- Courses ----------
+
+function courseCard(site, c, payments, i) {
   const open = isOpen(c, payments);
-  const f = facilitatorFor(c.slug);
+  const f = facilitatorFor(site, c);
   return `<article class="course reveal" style="--d:${(i * 0.07).toFixed(2)}s">
     <div class="course-head ${esc(c.colour)}">
       <span class="idx">0${i + 1}</span>
@@ -102,7 +139,7 @@ function courseCard(c, payments, i) {
         <span class="chip">${c.start_date ? `Starts ${esc(c.start_date)}` : 'Dates to be confirmed'}</span>
       </div>
       <p>${esc(c.summary)}</p>
-      ${f ? `<div class="led-by">${avatar(f, 'mini-photo')}<span><small>Led by</small>${esc(f.name)}</span></div>` : ''}
+      ${f ? `<div class="led-by">${avatar(site, f, 'mini-photo')}<span><small>Led by</small>${esc(f.name)}</span></div>` : ''}
       <div class="price"><small>Participation contribution</small>${esc(contribution(c))}</div>
       <div class="course-actions">
         <a class="btn" href="/courses/${esc(c.slug)}">${open ? 'Enrol now' : 'Express interest'} ${arrowBtn}</a>
@@ -111,12 +148,15 @@ function courseCard(c, payments, i) {
   </article>`;
 }
 
-function goodToKnow() {
-  const qa = [
-    ['Who can join?', 'Entry levels are set from your experience level and webinar feedback, so beginners are not left behind.'],
-    ['What does it cost?', 'Courses are highly subsidised, with a small participation contribution. The amount is shown on each course once it is confirmed, and free places are offered where the team can support them.'],
-    ['What happens next?', 'When a course is open, you pay your contribution securely with Paystack or Flutterwave and we confirm your place. Before then, express interest: we review interest, confirm scope and teaching capacity, then contact you with your course details and payment link.'],
-  ];
+// "question | answer" per line.
+export const parseFaq = (text) => lines(text).map((l) => {
+  const i = l.indexOf('|');
+  return i < 0 ? null : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+}).filter(Boolean);
+
+function goodToKnow(s) {
+  const qa = parseFaq(s.faq);
+  if (!qa.length) return '';
   return `<section class="dark" style="border-top:1px solid var(--line)">
   <div class="wrap">
     <div class="section-head reveal"><span class="tag">Good to know</span><h2>Before you choose</h2></div>
@@ -148,6 +188,8 @@ function interestForm(c, { freePlace = false } = {}) {
   </form>`;
 }
 
+// ---------- Home page ----------
+
 // "time | who | what" per line; older two-part lines ("time | what") still work.
 function parseAgenda(text) {
   return lines(text).map((l) => {
@@ -169,6 +211,13 @@ function heroTitle(title) {
     h1: `${esc(words.join(' '))} <span class="last">${esc(last)}${squiggle}</span>`,
     sub: sub ? `<div class="hero-sub"><b>&gt;_</b>${esc(sub)}</div>` : '',
   };
+}
+
+// Highlights the last `n` words of a heading.
+function lastWords(text, n = 2) {
+  const words = String(text).trim().split(/\s+/);
+  const tail = words.splice(Math.max(1, words.length - n));
+  return `${esc(words.join(' '))} <span class="last">${esc(tail.join(' '))}</span>`;
 }
 
 function fieldCard(c, i) {
@@ -198,66 +247,89 @@ function ticket(s) {
   </div>`;
 }
 
+function introSection(site) {
+  const s = site.settings;
+  const video = videoEmbed(s.promo_video, s.promo_title);
+  const audio = audioPlayer(media(site, s.promo_audio), s.promo_audio_title);
+  if (!video && !audio) return '';
+  return `<section class="light intro" id="intro">
+  <div class="wrap intro-grid${video ? '' : ' no-video'}">
+    <div class="reveal">
+      <span class="tag">${esc(s.promo_tag)}</span>
+      <h2>${esc(s.promo_title)}</h2>
+      ${s.promo_text ? `<p class="lead">${esc(s.promo_text)}</p>` : ''}
+      ${audio}
+    </div>
+    ${video ? `<div class="reveal" style="--d:.1s">${video}</div>` : ''}
+  </div>
+</section>`;
+}
+
 const noteIcons = ['phone', 'bolt', 'laptop', 'video'];
 
-export function homePage({ settings: s, courses, payments, query }) {
+export function homePage({ site, payments, query }) {
+  const s = site.settings;
+  const { courses } = site;
   const agenda = parseAgenda(s.webinar_agenda);
   const audience = lines(s.webinar_audience);
   const notes = lines(s.webinar_notes);
   const title = heroTitle(s.webinar_title);
-  const tickerItems = [...courses.map((c) => c.title), 'Free entry', 'Live demos', 'Starter exercises', '120 minutes'];
+  const heroImg = media(site, s.hero_image);
+  const tickerItems = [...courses.map((c) => c.title), ...lines(s.ticker_extra)];
   const tickerRun = tickerItems.map((t) => `<span>${esc(t)} ${icon('spark')}</span>`).join('');
   return `
 <section class="hero dark" id="webinar">
   <div class="glow g1"></div><div class="glow g2"></div><div class="glow g3"></div><div class="grid-bg"></div>
   <div class="wrap hero-grid">
     <div>
-      <div class="live reveal"><i></i>Registration open · Free · 2 hours, live</div>
+      <div class="live reveal"><i></i>${esc(s.hero_badge)}</div>
       <h1 ${rv(1)}>${title.h1}</h1>
       <div ${rv(2)}>${title.sub}</div>
       <p class="lead reveal" style="--d:.21s">${esc(s.webinar_tagline)}</p>
       <div class="hero-actions reveal" style="--d:.28s">
-        <a class="btn btn-yellow" href="#register">Save my free seat ${arrowBtn}</a>
-        <a class="btn btn-ghost" href="#fields">See what's inside</a>
+        <a class="btn btn-yellow" href="#register">${esc(s.hero_cta)} ${arrowBtn}</a>
+        <a class="btn btn-ghost" href="#fields">${esc(s.hero_cta_secondary)}</a>
       </div>
       ${audience.length ? `<div class="audience reveal" style="--d:.35s"><span>Made for</span>${audience.map((a) => `<span class="chip">${esc(a)}</span>`).join('')}</div>` : ''}
     </div>
     <div class="hero-bento reveal" style="--d:.2s">
       ${ticket(s)}
-      <div class="tile mark" style="grid-row:span 2"><img src="/brand/mark-reversed.svg" alt=""></div>
-      <div class="tile y"><div class="k">120</div><div class="l">minutes, live</div></div>
-      <div class="tile r"><div class="k">₦0</div><div class="l">to attend</div></div>
+      <div class="tile mark${heroImg ? ' photo' : ''}" style="grid-row:span 2">${heroImg ? imgTag(heroImg, { eager: true, w: 600, h: 800 }) : '<img src="/brand/mark-reversed.svg" alt="" width="240" height="215">'}</div>
+      <div class="tile y"><div class="k">${esc(s.hero_minutes)}</div><div class="l">${esc(s.hero_minutes_label)}</div></div>
+      <div class="tile r"><div class="k">${esc(s.hero_price)}</div><div class="l">${esc(s.hero_price_label)}</div></div>
     </div>
   </div>
 </section>
 
 <div class="ticker" aria-hidden="true"><div class="ticker-track">${tickerRun}${tickerRun}</div></div>
 
+${introSection(site)}
+
 <section class="light" id="fields">
   <div class="wrap">
     <div class="section-head reveal">
-      <span class="tag">The four fields</span>
-      <h2>Four fields. One practical first step.</h2>
-      <p class="lead">Each facilitator gets 20 minutes: five to explain the subject, ten to demonstrate and five to set your starter exercise and suggested learning path.</p>
+      <span class="tag">${esc(s.fields_tag)}</span>
+      <h2>${esc(s.fields_title)}</h2>
+      <p class="lead">${esc(s.fields_lead)}</p>
     </div>
     <div class="stat-row">
-      <div ${rv(0)}><strong>120</strong><span>minutes, live</span></div>
+      <div ${rv(0)}><strong>${esc(s.hero_minutes)}</strong><span>${esc(s.hero_minutes_label)}</span></div>
       <div ${rv(1)}><strong>${courses.length}</strong><span>live demonstrations</span></div>
       <div ${rv(2)}><strong>${courses.length}</strong><span>starter exercises</span></div>
-      <div ${rv(3)}><strong>₦0</strong><span>to attend</span></div>
+      <div ${rv(3)}><strong>${esc(s.hero_price)}</strong><span>${esc(s.hero_price_label)}</span></div>
     </div>
     <div class="bento">${courses.map(fieldCard).join('')}</div>
   </div>
 </section>
 
-${facilitatorsSection(courses)}
+${facilitatorsSection(site)}
 
 <section class="dark" id="programme" style="border-top:1px solid var(--line)">
   <div class="wrap">
     <div class="section-head reveal">
-      <span class="tag">Programme</span>
-      <h2>Two hours. No fluff.</h2>
-      <p class="lead muted">Times are minutes from the start. The date and start time are confirmed before registration opens.</p>
+      <span class="tag">${esc(s.programme_tag)}</span>
+      <h2>${esc(s.programme_title)}</h2>
+      <p class="lead muted">${esc(s.programme_lead)}</p>
     </div>
     <ol class="timeline">
       ${agenda.map((a, i) => `<li ${rv(i)}${/question/i.test(a.what) ? ' data-qa' : ''}>
@@ -272,8 +344,8 @@ ${facilitatorsSection(courses)}
 <section class="white" id="outcomes">
   <div class="wrap">
     <div class="section-head reveal">
-      <span class="tag">Outcomes</span>
-      <h2>By the end, you'll be able to…</h2>
+      <span class="tag">${esc(s.outcomes_tag)}</span>
+      <h2>${esc(s.outcomes_title)}</h2>
     </div>
     <div class="outcome-grid">
       ${lines(s.webinar_outcomes).map((o, i) => `<div class="outcome reveal" style="--d:${(i * 0.06).toFixed(2)}s">
@@ -282,9 +354,9 @@ ${facilitatorsSection(courses)}
       </div>`).join('')}
     </div>
     ${s.webinar_resource_pack ? `<div class="pack reveal">
-      <img src="/brand/mark-on-yellow.svg" alt="" width="92" height="82">
-      <div><h3>Take-home resource pack</h3><p>${esc(s.webinar_resource_pack)}</p></div>
-      <span class="stamp">Yours to keep</span>
+      <img src="/brand/mark-on-yellow.svg" alt="" width="92" height="82" loading="lazy">
+      <div><h3>${esc(s.pack_title)}</h3><p>${esc(s.webinar_resource_pack)}</p></div>
+      <span class="stamp">${esc(s.pack_stamp)}</span>
     </div>` : ''}
   </div>
 </section>
@@ -293,9 +365,9 @@ ${facilitatorsSection(courses)}
   <div class="glow g1" style="left:auto;right:-160px;top:10%;opacity:.4"></div>
   <div class="wrap register-grid">
     <div class="reveal">
-      <span class="tag">RSVP</span>
-      <h2>Save your free seat.</h2>
-      <p class="lead muted">Registration is free. Tell us a little about you so we can keep every session useful.</p>
+      <span class="tag">${esc(s.register_tag)}</span>
+      <h2>${esc(s.register_title)}</h2>
+      <p class="lead muted">${esc(s.register_lead)}</p>
       ${notes.length ? `<ul class="notes">${notes.map((n, i) => `<li><i>${icon(noteIcons[i] || 'check')}</i>${esc(n)}</li>`).join('')}</ul>` : ''}
     </div>
     <div class="card on-glow reveal" style="--d:.1s">
@@ -337,7 +409,7 @@ ${facilitatorsSection(courses)}
         </label>
         <label class="check"><input type="checkbox" name="cohort_updates" value="1"> Also keep me updated about subsidised cohort courses (optional, separate from your seat).</label>
         ${consent}
-        <button class="btn btn-block" type="submit">Reserve my free seat ${arrowBtn}</button>
+        <button class="btn btn-block" type="submit">${esc(s.register_button)} ${arrowBtn}</button>
       </form>
     </div>
   </div>
@@ -346,20 +418,20 @@ ${facilitatorsSection(courses)}
 <section class="light" id="courses">
   <div class="wrap">
     <div class="section-head reveal">
-      <span class="tag">After the webinar</span>
-      <h2>Next: subsidised cohort courses</h2>
-      <p class="lead">After the webinar, interested participants can join guided cohort courses in the four fields. Entry levels follow your registration and feedback. Course scope, teaching capacity and a small participation contribution are confirmed before enrolment opens, with free places where we can support them.</p>
+      <span class="tag">${esc(s.courses_tag)}</span>
+      <h2>${esc(s.courses_title)}</h2>
+      <p class="lead">${esc(s.courses_lead)}</p>
     </div>
-    <div class="course-grid">${courses.map((c, i) => courseCard(c, payments, i)).join('')}</div>
+    <div class="course-grid">${courses.map((c, i) => courseCard(site, c, payments, i)).join('')}</div>
   </div>
 </section>
 
 <section class="blue on-dark" id="contact">
   <div class="wrap contact-grid">
     <div class="reveal">
-      <span class="tag">Contact</span>
-      <h2>Questions? Talk to a human.</h2>
-      <p class="lead">Ask about the webinar, the cohort courses or working with TheBridge Project and Integrated Services Limited.</p>
+      <span class="tag">${esc(s.contact_tag)}</span>
+      <h2>${esc(s.contact_title)}</h2>
+      <p class="lead">${esc(s.contact_lead)}</p>
       <div class="contact-ways">
         <a href="${esc(whatsappLink(s.contact_whatsapp, 'Hello TheBridge, I have a question.'))}" target="_blank" rel="noopener">
           <span class="ico wa">${icon('chat')}</span><span><small>Fastest · WhatsApp</small><strong>${esc(s.contact_whatsapp)}</strong></span><span class="go">${icon('arrow')}</span>
@@ -386,37 +458,41 @@ ${facilitatorsSection(courses)}
 </section>`;
 }
 
-export function coursesPage({ courses, payments }) {
+// ---------- Course pages ----------
+
+export function coursesPage({ site, payments }) {
+  const s = site.settings;
   return `
 <section class="page-hero dark">
   <div class="glow g1"></div><div class="glow g3"></div><div class="grid-bg"></div>
   <div class="wrap page-hero-grid">
     <div class="reveal">
-      <span class="tag">After the webinar</span>
-      <h1>Highly subsidised <span class="last">cohort courses</span></h1>
-      <p class="lead muted">Guided learning in the four fields you met in the webinar. Tell us which one you want and we will confirm entry level, dates and your place.</p>
+      <span class="tag">${esc(s.courses_tag)}</span>
+      <h1>${lastWords(s.courses_page_title)}</h1>
+      <p class="lead muted">${esc(s.courses_page_lead)}</p>
     </div>
     <img src="/brand/mark-reversed.svg" alt="" width="240" height="215">
   </div>
 </section>
 <section class="light">
   <div class="wrap">
-    <div class="section-head reveal"><span class="tag">Choose a path</span><h2>Pick your lane.</h2></div>
-    <div class="course-grid">${courses.map((c, i) => courseCard(c, payments, i)).join('')}</div>
+    <div class="section-head reveal"><span class="tag">Choose a path</span><h2>${esc(s.courses_pick)}</h2></div>
+    <div class="course-grid">${site.courses.map((c, i) => courseCard(site, c, payments, i)).join('')}</div>
   </div>
 </section>
-${goodToKnow()}`;
+${goodToKnow(s)}`;
 }
 
-export function coursePage({ course: c, payments, query }) {
+export function coursePage({ site, course: c, payments, query }) {
   const open = isOpen(c, payments);
   const option = (key, label) => `<label><input type="radio" name="provider" value="${key}" required ${payments[key] ? '' : 'disabled'}> ${label}${payments[key] ? '' : ' <small>(unavailable)</small>'}</label>`;
+  const video = videoEmbed(c.video, c.title);
   return `
 <section class="dark page-hero" style="padding-top:48px !important">
   <div class="glow g1"></div><div class="grid-bg"></div>
   <div class="wrap course-page">
     <div class="reveal">
-      <a href="/courses" class="back">${'<span style="display:inline-block;width:16px;transform:rotate(180deg)">' + icon('arrow') + '</span>'} All courses</a>
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="/courses">Courses</a></nav>
       <div class="color-bar ${esc(c.colour)}"></div>
       <h1>${esc(c.title)}</h1>
       <div class="course-meta">
@@ -426,10 +502,11 @@ export function coursePage({ course: c, payments, query }) {
         <span class="chip">${open ? 'Enrolment open' : 'Taking interest'}</span>
       </div>
       <p class="lead" style="color:#D4D4D0">${esc(c.summary)}</p>
-      ${lines(c.outcomes).length ? `<h3 style="margin-top:32px">What you'll be able to do</h3>
+      ${video ? `<div class="course-video">${video}</div>` : ''}
+      ${lines(c.outcomes).length ? `<h2 class="h3" style="margin-top:32px">What you'll be able to do</h2>
       <ul class="ticks">${lines(c.outcomes).map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
       ${c.session_title ? `<div class="session-note"><i>${icon('play')}</i><div><small>Introduced in the free webinar</small>${esc(c.session_title)}</div></div>` : ''}
-      ${facilitatorNote(c)}
+      ${facilitatorNote(site, c)}
     </div>
     <div class="card on-glow reveal" style="--d:.1s">
       ${alerts(query)}
@@ -466,8 +543,10 @@ export function coursePage({ course: c, payments, query }) {
     </div>
   </div>
 </section>
-${goodToKnow()}`;
+${goodToKnow(site.settings)}`;
 }
+
+// ---------- Payments and errors ----------
 
 export function paymentResultPage({ enrolment: e, course, state }) {
   const views = {
@@ -475,7 +554,7 @@ export function paymentResultPage({ enrolment: e, course, state }) {
     pending: ['', '…', 'Confirming your payment', "We haven't received confirmation from the payment provider yet. This can take a few minutes. If you were charged, you're covered — we'll confirm by email. Keep your reference below."],
     failed: ['err', '×', 'Payment not completed', 'The payment was cancelled or declined, and you have not been charged by us. You can try again or pick the other payment option.'],
   };
-  const [cls, mark, heading, text] = views[state];
+  const [cls, mark, heading, text] = views[state] || views.pending;
   return `
 <section class="dark">
   <div class="glow g1"></div>
@@ -485,8 +564,8 @@ export function paymentResultPage({ enrolment: e, course, state }) {
     <p class="lead muted">${esc(text)}</p>
     ${e ? `<dl class="receipt">
       <div><dt>Reference</dt><dd>${esc(e.reference)}</dd></div>
-      <div><dt>Course</dt><dd>${esc(course?.title || '')}</dd></div>
-      <div><dt>Amount</dt><dd>${esc(naira(e.amount_kobo))}</dd></div>
+      <div><dt>Course</dt><dd>${esc(course?.title || e.course || '')}</dd></div>
+      <div><dt>Amount</dt><dd>${esc(naira(Number(e.amount_kobo)))}</dd></div>
       <div><dt>Paid with</dt><dd>${esc(e.provider === 'paystack' ? 'Paystack' : 'Flutterwave')}</dd></div>
     </dl>` : ''}
     <div class="hero-actions">
@@ -502,8 +581,8 @@ export function demoCheckoutPage({ enrolment: e, course }) {
 <section class="dark">
   <div class="wrap result">
     <div class="alert">Demo checkout — local testing only. No money moves. Set real keys in .env to use ${esc(e.provider === 'paystack' ? 'Paystack' : 'Flutterwave')}.</div>
-    <h1 style="font-size:2.6rem">Pay ${esc(naira(e.amount_kobo))}</h1>
-    <p class="muted">${esc(course.title)} · ${esc(e.email)}</p>
+    <h1 style="font-size:2.6rem">Pay ${esc(naira(Number(e.amount_kobo)))}</h1>
+    <p class="muted">${esc(course?.title || e.course)} · ${esc(e.email)}</p>
     <form method="post" action="/payments/demo" class="hero-actions">
       <input type="hidden" name="reference" value="${esc(e.reference)}">
       <button class="btn btn-yellow" name="outcome" value="success" type="submit">Simulate success</button>

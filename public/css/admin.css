@@ -49,7 +49,49 @@ tr.done td { opacity: .5; }
 .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: var(--blue); }
 .login-wrap .card { width: 100%; max-width: 420px; }
 
+.admin-side .nav-group { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #8A8A85; padding: 18px 12px 6px; }
+.filters a.current { text-decoration: underline 3px var(--yellow); }
+.jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 22px; }
+.jump a { font-size: .85rem; font-weight: 600; text-decoration: none; padding: 6px 12px; border: 2px solid var(--black); border-radius: 99px; background: var(--white); }
+.jump a:hover { background: var(--yellow); }
+.panel { scroll-margin-top: 16px; }
+.field-block { display: grid; gap: 8px; }
+.field-label { font-weight: 600; font-size: .9rem; }
+.form-actions { display: flex; gap: 12px; align-items: center; }
+.picker { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.picker select { width: auto; min-width: 220px; max-width: 100%; }
+.picker .upload-btn { cursor: pointer; }
+.picker-status { font-size: .85rem; color: var(--grey-500); }
+.picker-preview { flex-basis: 100%; }
+.picker-preview img { max-width: 220px; max-height: 160px; border-radius: 10px; border: 2px solid var(--black); object-fit: cover; }
+.picker-preview audio { width: 100%; max-width: 420px; }
+.yt-thumb { width: 200px; border-radius: 8px; margin-top: 8px; border: 2px solid var(--black); }
+.danger { padding: 0 20px 18px; text-align: right; }
+.danger .link-btn { color: var(--red); }
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.media-card { background: var(--white); border: 2px solid var(--black); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+.media-thumb { aspect-ratio: 4 / 3; background: var(--grey-50); display: grid; place-items: center; border-bottom: 2px solid var(--black); font-size: .85rem; color: var(--grey-500); }
+.media-thumb img, .media-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.media-thumb audio { width: 90%; }
+.media-info { padding: 12px; display: grid; gap: 8px; font-size: .88rem; min-width: 0; }
+.media-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-info input { padding: 7px 9px; font-size: .82rem; }
+.alt-form { display: flex; gap: 6px; }
+.sub-grid { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
+.facts { margin: 0 0 12px; display: grid; gap: 6px; }
+.facts div { display: grid; grid-template-columns: 130px 1fr; gap: 10px; }
+.facts dt { font-weight: 600; color: var(--grey-500); font-size: .85rem; }
+.facts dd { margin: 0; }
+.pre { white-space: pre-wrap; }
+details h3 { font-size: 1rem; margin: 14px 0 4px; }
+.use-form { background: var(--grey-50); border: 2px solid var(--black); border-radius: var(--radius); padding: 14px; }
+
+/* Save messages float in view, since saving returns you to the section you edited. */
+.alert.toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; max-width: min(440px, calc(100vw - 40px)); margin: 0; box-shadow: 6px 6px 0 var(--black); transition: opacity .4s, transform .4s; }
+.alert.toast.gone { opacity: 0; transform: translateY(12px); pointer-events: none; }
+
 @media (max-width: 900px) {
+  .sub-grid { grid-template-columns: 1fr; }
   .admin-shell { grid-template-columns: 1fr; }
   .admin-side { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; }
   .admin-side .brand { margin: 0 12px 0 0; }

@@ -2,8 +2,9 @@
 
 Website for **TheBridge Project and Integrated Services Limited**: the free "Build, Automate and Secure" webinar, cohort courses with Paystack/Flutterwave checkout, a contact form, and an admin dashboard.
 
-- **Stack:** Node.js 22.13+ (built-in SQLite), Express. No build step.
-- **Data:** one SQLite file at `data/thebridge.db`, created on first run. Back it up.
+- **Stack:** Node.js 22+, Express. No build step. Hosted on Vercel.
+- **Data:** the **Bridge Database** Google Sheet. Each kind of record has its own tab (Webinar DB, Pre -registration DB, Payments, Messages, Site content, Courses, Facilitators, Media, Facilitator's Profile). Uploaded files go to Google Drive. The site talks to the sheet through a small Apps Script web app, [scripts/bridge-sheet.gs](scripts/bridge-sheet.gs), using a shared secret key.
+- **Development:** with `SHEET_API_URL`/`SHEET_API_KEY` empty, everything is stored in `data/store.json` instead, so you can work without touching the real sheet.
 
 ## Run locally
 
@@ -21,21 +22,46 @@ With `PAYMENT_DEMO=1` and no provider keys, checkout goes to a fake payment page
 
 | URL | What it is |
 | --- | --- |
-| `/` | Webinar landing page: the four fields (session, demo, exercise), the two-hour programme, outcomes, resource pack, registration form, course teaser, contact form |
+| `/` | Webinar landing page: hero, optional intro video and audio, the four fields, facilitators, programme, outcomes, registration, courses, contact |
 | `/courses`, `/courses/:slug` | Course list and course pages with the enrol and payment form |
+| `/fprofile` | Private form for facilitators to send their profile and session plan (not linked or indexed) |
 | `/payments/result/:ref` | Payment confirmed / pending / failed page |
-| `/admin` | Dashboard: sign-ups, payments, messages, course fees and dates, webinar details, CSV exports |
+| `/sitemap.xml`, `/robots.txt` | For search engines |
+| `/media/:id/:name` | Images, audio and video from the media library |
+| `/admin` | Dashboard: sign-ups, interest, payments, messages, **site content**, courses, facilitators, facilitator forms, **media library**, CSV exports |
+
+## Admin
+
+Everything on the public site is editable under **Website** in `/admin`:
+
+- **Site content:** every heading and paragraph, the webinar details, SEO title and description, share image, social links, the hero image, and an optional intro video (YouTube) and audio clip. Clearing a text field brings back its original wording.
+- **Courses:** add, edit, hide, reorder and delete; fee, dates, outcomes, webinar session text and an optional YouTube video.
+- **Facilitators:** photo, role, course, bio, qualifications, LinkedIn and other links, intro video and audio.
+- **Facilitator forms:** answers from `/fprofile`, with **Fill profile** to copy one into a website profile, photo included.
+- **Media library:** upload images (resized to 1600 px in the browser), audio and short video clips, up to 3 MB each. Long videos go on YouTube.
+
+Edits reach the live site within about a minute: pages are cached at Vercel's edge for 60 seconds.
+
+## Tests
+
+```bash
+npm test
+```
+
+Runs the whole site against a temporary local store: forms, payments (demo checkout), admin login, CSRF, content editing, uploads, media serving, SEO output and escaping.
 
 ## Going live
 
-1. **Server.** Any host that runs Node 22.13+ with a persistent disk works, for example a VPS, Render or Railway with a volume. Set every variable from `.env.example`. Set `NODE_ENV=production` and set `BASE_URL` to the real https address.
-2. **Admin.** Choose a long `ADMIN_PASSWORD`. Generate `SESSION_SECRET` with the command in `.env.example`.
-3. **Paystack.** Copy the secret key into `PAYSTACK_SECRET_KEY`. In the Paystack dashboard, set the webhook URL to `https://YOUR-DOMAIN/webhooks/paystack`.
-4. **Flutterwave.** Copy the secret key into `FLW_SECRET_KEY`. In the Flutterwave dashboard, set the webhook URL to `https://YOUR-DOMAIN/webhooks/flutterwave`. Choose a secret hash there and put the same value in `FLW_SECRET_HASH`.
-5. **Content.** In `/admin`:
+1. **Google Sheet.** Follow the setup steps at the top of [scripts/bridge-sheet.gs](scripts/bridge-sheet.gs): paste it into the sheet's Apps Script, add the `API_KEY` script property (the same value as `SHEET_API_KEY`), and deploy it as a web app. Put its `/exec` URL in `SHEET_API_URL`.
+2. **Server.** Set every variable from `.env.example` in Vercel. Set `BASE_URL` to the real https address: it is used for canonical links, the sitemap and payment redirects.
+3. **Admin.** Choose a long `ADMIN_PASSWORD`. Generate `SESSION_SECRET` with the command in `.env.example`.
+4. **Paystack.** Copy the secret key into `PAYSTACK_SECRET_KEY`. In the Paystack dashboard, set the webhook URL to `https://YOUR-DOMAIN/webhooks/paystack`.
+5. **Flutterwave.** Copy the secret key into `FLW_SECRET_KEY`. In the Flutterwave dashboard, set the webhook URL to `https://YOUR-DOMAIN/webhooks/flutterwave`. Choose a secret hash there and put the same value in `FLW_SECRET_HASH`.
+6. **Content.** In `/admin`:
    - under **Courses**, set each course's fee and start date (the payment form only appears once a fee is set);
-   - under **Webinar & contact**, set the webinar date, time and platform.
-6. **Test with test keys first.** Use the providers' test keys and test cards, then switch to live keys.
+   - under **Site content**, set the webinar date, time, platform and the exact start time for Google.
+7. **Test with test keys first.** Use the providers' test keys and test cards, then switch to live keys.
+8. **Search.** Add the site to [Google Search Console](https://search.google.com/search-console), verify it, and submit `https://YOUR-DOMAIN/sitemap.xml`.
 
 ### How payments are trusted
 

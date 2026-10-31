@@ -1,11 +1,12 @@
 import crypto from 'node:crypto';
-import { db } from './db.js';
+import { findEnrolment, updateEnrolment } from './data.js';
+import { nowUtc } from './store.js';
 import { safeEqual } from './security.js';
 
 const baseUrl = () => (process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
 
 export function providers() {
-  const demo = process.env.PAYMENT_DEMO === '1' && process.env.NODE_ENV !== 'production';
+  const demo = process.env.PAYMENT_DEMO === '1' && process.env.NODE_ENV !== 'production' && !process.env.VERCEL;
   return {
     paystack: Boolean(process.env.PAYSTACK_SECRET_KEY),
     flutterwave: Boolean(process.env.FLW_SECRET_KEY),
@@ -44,7 +45,7 @@ export async function startCheckout(enrolment, course) {
       key: process.env.PAYSTACK_SECRET_KEY,
       body: {
         email: enrolment.email,
-        amount: enrolment.amount_kobo,
+        amount: Number(enrolment.amount_kobo),
         currency: 'NGN',
         reference,
         callback_url: `${baseUrl()}/payments/paystack/callback`,
@@ -60,7 +61,7 @@ export async function startCheckout(enrolment, course) {
       key: process.env.FLW_SECRET_KEY,
       body: {
         tx_ref: reference,
-        amount: enrolment.amount_kobo / 100,
+        amount: Number(enrolment.amount_kobo) / 100,
         currency: 'NGN',
         redirect_url: `${baseUrl()}/payments/flutterwave/callback`,
         customer: { email: enrolment.email, name: enrolment.name, phonenumber: enrolment.phone },
@@ -96,18 +97,15 @@ export async function verifyFlutterwave({ transactionId, reference }) {
  * Records a verified payment. Only marks paid if the amount covers the price we
  * stored when the enrolment was created. Returns the enrolment row.
  */
-export function recordResult(reference, { paid, amountKobo, providerTx }) {
-  const row = db.prepare('SELECT * FROM enrolments WHERE reference = ?').get(reference);
+export async function recordResult(reference, { paid, amountKobo, providerTx }) {
+  const row = await findEnrolment(reference);
   if (!row) return null;
   if (row.status === 'paid') return row;
-  if (paid && amountKobo >= row.amount_kobo) {
-    db.prepare(`UPDATE enrolments SET status = 'paid', provider_tx = ?, paid_at = datetime('now') WHERE reference = ? AND status != 'paid'`)
-      .run(providerTx || '', reference);
-  } else {
-    db.prepare(`UPDATE enrolments SET status = 'failed', provider_tx = ? WHERE reference = ? AND status = 'pending'`)
-      .run(providerTx || '', reference);
+  if (paid && Number(amountKobo) >= Number(row.amount_kobo)) {
+    return updateEnrolment(reference, { status: 'paid', provider_tx: providerTx || '', paid_at: nowUtc() });
   }
-  return db.prepare('SELECT * FROM enrolments WHERE reference = ?').get(reference);
+  if (row.status === 'pending') return updateEnrolment(reference, { status: 'failed', provider_tx: providerTx || '' });
+  return row;
 }
 
 export function paystackSignatureValid(rawBody, signature) {

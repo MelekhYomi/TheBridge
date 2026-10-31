@@ -59,3 +59,19 @@ window.addEventListener('pageshow', (e) => {
     btn.innerHTML = btn.dataset.label;
   });
 });
+
+// YouTube: swap the thumbnail for the real player only when someone presses play.
+document.querySelectorAll('a.yt[data-yt]').forEach((link) => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const frame = document.createElement('iframe');
+    frame.src = `https://www.youtube-nocookie.com/embed/${link.dataset.yt}?autoplay=1&rel=0`;
+    frame.title = link.getAttribute('aria-label') || 'Video';
+    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    frame.allowFullscreen = true;
+    const box = document.createElement('div');
+    box.className = 'yt';
+    box.append(frame);
+    link.replaceWith(box);
+  });
+});
