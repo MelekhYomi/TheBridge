@@ -133,7 +133,7 @@ app.get('/courses/:slug', (req, res, next) => {
 
 // ---------- Facilitator profile form (/fprofile) → Google Sheet ----------
 
-const sheetUrl = () => process.env.FPROFILE_SHEET_URL || '';
+const sheetUrl = () => (process.env.FPROFILE_SHEET_URL || '').trim(); // trim() also drops a stray BOM
 const fprofilePage = (res, opts, status = 200) => page(res, { title: 'Facilitator profile', noindex: true, status, body: fp.fprofilePage({ connected: Boolean(sheetUrl()), ...opts }) });
 
 app.get('/fprofile', (req, res) => fprofilePage(res, { sent: req.query.status === 'sent' }));
